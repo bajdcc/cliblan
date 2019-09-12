@@ -1,0 +1,17 @@
+{
+  "name": "cliblan",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "node-uuid": "^1.4.8",
+    "nodejs-websocket": "^1.7.2"
+  }
+}
