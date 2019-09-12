@@ -37,14 +37,34 @@
                     <div class="layui-form-item layui-form-text">
                         <label class="layui-form-label">返回内容</label>
                         <div class="layui-input-block">
-                            <input type="text" placeholder="请输入" class="layui-input" readonly :value="toutput">
+                            <input type="text" placeholder="返回内容" class="layui-input" readonly :value="toutput">
                         </div>
                     </div>
 
                     <div class="layui-form-item">
                         <div class="layui-input-block">
                             <button type="submit" class="layui-btn" id="send" onclick="return false;">发送</button>
-                            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                            <button type="reset" class="layui-btn layui-btn-primary" @click="clear"
+                                onclick="return false;">重置</button>
+                        </div>
+                    </div>
+                </form>
+
+                <fieldset class="layui-elem-field layui-field-title" style="margin-top: 20px;">
+                    <legend>联机选项</legend>
+                </fieldset>
+
+                <form class="layui-form" action="">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">对方玩家ID</label>
+                        <div class="layui-input-block">
+                            <input type="text" placeholder="对方玩家ID" class="layui-input" readonly :value="player.enemy">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <div class="layui-input-block">
+                            <button type="button" class="layui-btn layui-btn-normal" @click="match"
+                                :class="{ 'layui-btn-normal': player.enemy.length === 0, 'layui-btn-disabled': player.enemy.length > 0 }">开始匹配</button>
                         </div>
                     </div>
                 </form>
@@ -66,10 +86,21 @@
                 el: '#app',
                 data: {
                     player: {
-                        uid: ""
+                        uid: "",
+                        enemy: ""
                     },
                     tinput: "",
                     toutput: ""
+                },
+                methods: {
+                    match: function () {
+                        layx.load('match', "正在寻找玩家...");
+                        ws.send(JSON.stringify({ code: "matching", data: "123" }));
+                    },
+                    clear: function () {
+                        this.tinput = "";
+                        this.toutput = "";
+                    }
                 }
             });
 
@@ -90,8 +121,13 @@
                 } else if (obj.code === 'uid') {
                     Vue.set(app.player, 'uid', obj.data);
                     console.info("uid", obj.data);
-                    $("uid");
                     layx.destroy('init');
+                } else if (obj.code === 'matched') {
+                    Vue.set(app.player, 'enemy', obj.data);
+                    layx.destroy('match');
+                } else if (obj.code === 'match_disconnect') {
+                    Vue.set(app.player, 'enemy', "");
+                    layx.msg("对方已断开连接");
                 }
             }
             ws.onclose = function () {
