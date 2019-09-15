@@ -118,6 +118,10 @@
                 var code = obj.code;
                 if (obj.code === 'broadcast') {
                     app.toutput = obj.data;
+                    if (obj.data === "matching" && !app.player.enemy.length) {
+                        layx.load('match', "自动：正在寻找玩家...");
+                        ws.send(JSON.stringify({ code: "matching", data: "321" }));
+                    }
                 } else if (obj.code === 'uid') {
                     Vue.set(app.player, 'uid', obj.data);
                     console.info("uid", obj.data);
@@ -132,6 +136,8 @@
             }
             ws.onclose = function () {
                 console.log('ws::close');
+                layx.load('reload', "服务器已断开连接...");
+                setTimeout(function () { location.reload() }, 2000);
             }
             ws.οnerrοr = function () {
                 console.error('ws::error');
