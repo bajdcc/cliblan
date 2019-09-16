@@ -9,14 +9,15 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="/layui/css/layui.css" media="all">
     <link rel="stylesheet" href="/css/layx.min.css" media="all">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
     <title>cliblan 连接用户</title>
 </head>
 
 <body>
 
-    <div class="layui-container" id="app">
+    <div class="layui-container" id="app" style="background-color: white">
         <div class="layui-row">
-            <div class="layui-col-xs8">
+            <div class="layui-col-xs12">
                 <fieldset class="layui-elem-field layui-field-title" style="margin-top: 20px;">
                     <legend>用户列表</legend>
                 </fieldset>
@@ -31,26 +32,43 @@
     <script type="text/javascript" src="js/layx.min.js" charset="utf-8"></script>
     <script type="text/javascript" src="js/vue.min.js" charset="utf-8"></script>
     <script type="text/javascript">
-
-        $(document).ready(function () {
-            layui.use('table', function () {
+        $(document).ready(function() {
+            layui.use('table', function() {
                 var table = layui.table;
 
                 table.render({
-                    elem: '#list'
-                    , url: '/api2/user'
-                    , cellMinWidth: 80
-                    , cols: [[
-                        { field: 'id', width: 80, title: '编号', sort: true }
-                        , { field: 'uid', width: 300, title: '用户名' }
-                        , { field: 'enemy', width: 80, title: '对手', sort: true }
-                        , { field: 'keyid', title: '标识' }
-                    ]]
-                    , page: true
+                    elem: '#list',
+                    url: '/api2/user',
+                    cellMinWidth: 80,
+                    cols: [
+                        [{
+                            field: 'id',
+                            width: 80,
+                            title: '编号',
+                            sort: true
+                        }, {
+                            field: 'uid',
+                            width: 300,
+                            title: '用户名'
+                        }, {
+                            field: 'enemy',
+                            width: 80,
+                            title: '对手',
+                            sort: true
+                        }, {
+                            width: 250,
+                            field: 'keyid',
+                            title: '标识'
+                        }, {
+                            width: 200,
+                            field: 'createtime',
+                            title: '创建时间'
+                        }]
+                    ],
+                    page: true
                 });
             });
         });
-
     </script>
 </body>
 

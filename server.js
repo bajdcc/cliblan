@@ -17,7 +17,8 @@ log4js.configure({
     },
     categories: {
         default: {
-            appenders: ['col'], level: 'error'
+            appenders: ['col'],
+            level: 'error'
         }
     },
     replaceConsole: true
@@ -36,7 +37,7 @@ app.use(compression());
 app.use(log4js.connectLogger(log4js.getLogger("col"), { level: log4js.levels.INFO }));
 
 const db = new alasql.Database();
-db.exec('CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, uid STRING, enemy STRING NULL, keyid STRING)');
+db.exec('CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, uid STRING, enemy STRING NULL, keyid STRING, createtime STRING)');
 
 const {
     GraphQLID,
@@ -67,6 +68,9 @@ const UserType = new GraphQLObjectType({
         },
         key: {
             type: GraphQLString
+        },
+        createtime: {
+            type: GraphQLString
         }
     })
 });
@@ -78,7 +82,7 @@ const queryType = new GraphQLObjectType({
             type: new GraphQLList(UserType),
             description: 'Get user list',
             resolve: (_, args) => {
-                return db.exec('select id,uid,enemy,keyid from users');
+                return db.exec('select id,uid,enemy,keyid,createtime from users');
             }
         }
     })
@@ -120,7 +124,7 @@ router.get('/user', (req, res) => {
     if (page <= 0) page = 0;
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
-    const _users = db.exec('SELECT id,uid,enemy,keyid FROM users LIMIT ' + limit + ' OFFSET ' + page * limit);
+    const _users = db.exec('SELECT id,uid,enemy,keyid,createtime FROM users LIMIT ' + limit + ' OFFSET ' + page * limit);
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -135,16 +139,16 @@ console.log('start app');
 
 const broadcast = (server, info) => {
     console.log('ws::broadcast', info)
-    server.connections.forEach(function (conn) {
+    server.connections.forEach(function(conn) {
         conn.sendText(JSON.stringify({ code: "broadcast", data: info }))
     })
 }
 
 var ws = require('nodejs-websocket');
 var uuid = require('node-uuid');
-var server = ws.createServer(function (conn) {
+var server = ws.createServer(function(conn) {
     console.info("new connection")
-    conn.on('text', function (data) {
+    conn.on('text', function(data) {
         if (users[conn.key])
             console.info('ws::text', users[conn.key].id, data);
         let obj = JSON.parse(data);
@@ -162,6 +166,7 @@ var server = ws.createServer(function (conn) {
             db.exec('INSERT INTO users VALUES ?', [{
                 uid: uid,
                 keyid: conn.key,
+                createtime: new Date().toLocaleString()
             }]);
             var id = db.exec('SELECT id FROM users WHERE keyid = ?', [conn.key])[0].id;
             users[conn.key] = {
@@ -195,10 +200,10 @@ var server = ws.createServer(function (conn) {
             }
         }
     });
-    conn.on('connect', function (code) {
+    conn.on('connect', function(code) {
         console.log('ws::connect', code);
     });
-    conn.on('close', function (code) {
+    conn.on('close', function(code) {
         console.log('ws::close', code);
         if (users[conn.key]) {
             if (users[conn.key].enemy && users[users[conn.key].enemy] && users[users[conn.key].enemy].enemy) {
@@ -211,7 +216,7 @@ var server = ws.createServer(function (conn) {
         }
         console.info("now users", Object.keys(users).length);
     });
-    conn.on('error', function (code) {
+    conn.on('error', function(code) {
         console.log('ws::error', code);
         try {
             conn.close('force close');
