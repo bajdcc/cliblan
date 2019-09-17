@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/layui/css/layui.css" media="all">
     <link rel="stylesheet" href="/css/layx.min.css" media="all">
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
-    <title>cliblan 连接用户</title>
+    <title>cliblan 房间</title>
 </head>
 
 <body>
@@ -19,7 +19,7 @@
         <div class="layui-row">
             <div class="layui-col-xs12">
                 <fieldset class="layui-elem-field layui-field-title" style="margin-top: 20px;">
-                    <legend>用户列表</legend>
+                    <legend>房间列表</legend>
                 </fieldset>
 
                 <table class="layui-hide" id="list"></table>
@@ -38,7 +38,7 @@
 
                 table.render({
                     elem: '#list',
-                    url: '/api2/user',
+                    url: '/api2/room',
                     cellMinWidth: 80,
                     cols: [
                         [{
@@ -47,23 +47,13 @@
                             title: '编号',
                             sort: true
                         }, {
-                            field: 'uid',
-                            width: 300,
-                            title: '用户名'
-                        }, {
-                            field: 'enemy',
+                            field: 'player1',
                             width: 80,
-                            title: '对手',
-                            sort: true
+                            title: '玩家一'
                         }, {
-                            field: 'room',
+                            field: 'player2',
                             width: 80,
-                            title: '房间',
-                            sort: true
-                        }, {
-                            width: 250,
-                            field: 'keyid',
-                            title: '标识'
+                            title: '玩家二'
                         }, {
                             width: 200,
                             field: 'createtime',
