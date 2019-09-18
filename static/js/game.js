@@ -1,4 +1,4 @@
-$(document).ready(function () {
+$(document).ready(function() {
 
     layx.load('init', "正在获取用户ID...");
 
@@ -13,33 +13,33 @@ $(document).ready(function () {
             toutput: ""
         },
         methods: {
-            match: function () {
+            match: function() {
                 layx.load('match', "正在寻找玩家...");
                 ws.send(JSON.stringify({
                     code: "matching",
                     data: "123"
                 }));
             },
-            clear: function () {
+            clear: function() {
                 this.tinput = "";
                 this.toutput = "";
             }
         }
     });
 
-    var ws = new WebSocket('ws://localhost:8081');
+    var ws = new WebSocket('ws://' + location.hostname + ':8081');
     var ws_open = false;
-    ws.onopen = function () {
+    ws.onopen = function() {
         console.log('ws::open');
         ws_open = true;
-        setTimeout(function () {
+        setTimeout(function() {
             ws.send(JSON.stringify({
                 code: "hello",
                 data: "123"
             }));
         }, 100);
     };
-    ws.onmessage = function (data) {
+    ws.onmessage = function(data) {
         data = data.data;
         console.info("data", data);
         var obj = JSON.parse(data);
@@ -57,7 +57,7 @@ $(document).ready(function () {
             console.info("uid", obj.data);
             layx.destroy('init');
             layx.msg("准备匹配中...");
-            setTimeout(function () {
+            setTimeout(function() {
                 app.match();
             }, 2000);
         } else if (obj.code === 'matched') {
@@ -77,22 +77,22 @@ $(document).ready(function () {
             window.pixi.turnText.text = "等待对方下棋……";
         }
     }
-    ws.onclose = function () {
+    ws.onclose = function() {
         console.log('ws::close');
         layx.load('reload', "服务器已断开连接...");
         ws_open = false;
         setTimeout(function re() {
-            $.get("/api2/ping", function () { location.reload(); }).error(function () {
+            $.get("/api2/ping", function() { location.reload(); }).error(function() {
                 setTimeout(re, 2000);
             });
         }, 2000);
     }
-    ws.οnerrοr = function () {
+    ws.οnerrοr = function() {
         console.error('ws::error');
         ws_open = false;
     }
 
-    $("#send").click(function () {
+    $("#send").click(function() {
         if (app.tinput.length)
             ws.send(JSON.stringify({
                 code: "broadcast",
@@ -102,7 +102,7 @@ $(document).ready(function () {
             layx.alert('错误', '请输入内容');
     });
 
-    $(window).unload(function () {
+    $(window).unload(function() {
         if (ws_open)
             ws.send(JSON.stringify({
                 code: "close",
@@ -110,7 +110,7 @@ $(document).ready(function () {
             }));
     });
 
-    (function () {
+    (function() {
         let type = "WebGL"
         if (!PIXI.utils.isWebGLSupported()) {
             type = "Canvas"
@@ -119,12 +119,12 @@ $(document).ready(function () {
         PIXI.utils.sayHello(type)
     });
 
-    $(window).resize(function () {
+    $(window).resize(function() {
         if (window.pixi && window.pixi.resize_cb)
             window.resize_cb();
     });
 
-    var begin_match = function () {
+    var begin_match = function() {
 
         layx.load('gaming', "游戏初始化中……");
 
@@ -199,7 +199,7 @@ $(document).ready(function () {
 
         graphics.interactive = true;
         graphics.hitArea = graphics.getBounds();
-        graphics.click = function (data) {
+        graphics.click = function(data) {
             var d = data.data;
             console.group("鼠标消息");
             console.info("PIXI::Click", d.global.x, d.global.y);
@@ -225,14 +225,14 @@ $(document).ready(function () {
             app.renderer.render(app.stage);
         }
 
-        window.pixi.resize_cb = function () {
+        window.pixi.resize_cb = function() {
             app.renderer.resize(window.innerWidth, window.innerHeight);
         };
 
         layx.destroy('gaming');
     };
 
-    var reset = function () {
+    var reset = function() {
         $("#app").css('display', 'block');
         $("#game").html("");
         delete window.pixi;
