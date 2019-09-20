@@ -69,12 +69,26 @@ $(document).ready(function() {
             layx.msg("对方已断开连接");
             layx.load('reload', "正在刷新……");
             reset();
+            layx.msg("准备匹配中...");
+            setTimeout(function() {
+                app.match();
+            }, 2000);
         } else if (obj.code === 'error') {
             layx.msg(obj.data);
         } else if (obj.code === 'game_turn_on') {
-            window.pixi.turnText.text = "轮到你下棋了！";
+            window.pixi.set_text("轮到你下棋了！");
         } else if (obj.code === 'game_turn_off') {
-            window.pixi.turnText.text = "等待对方下棋……";
+            window.pixi.set_text("等待对方下棋……");
+        } else if (obj.code === 'game_set') {
+            window.pixi.draw_pt(obj.data);
+        } else if (obj.code === 'game_set_player') {
+            var text = ["", "你是黑方", "你是白方", "你赢了！", "你输了！"];
+            if (text[obj.data])
+                window.pixi.set_player(text[obj.data]);
+            if (obj.data >= 3 && obj.data <= 4) {
+                layx.msg('比赛已结束！');
+                window.pixi.restart();
+            }
         }
     }
     ws.onclose = function() {
@@ -121,7 +135,7 @@ $(document).ready(function() {
 
     $(window).resize(function() {
         if (window.pixi && window.pixi.resize_cb)
-            window.resize_cb();
+            window.pixi.resize_cb();
     });
 
     var begin_match = function() {
@@ -129,7 +143,8 @@ $(document).ready(function() {
         layx.load('gaming', "游戏初始化中……");
 
         var app = new PIXI.Application({
-            antialias: true
+            antialias: true,
+            autoDensity: true
         });
         window.pixi = {
             pixi: app
@@ -178,9 +193,30 @@ $(document).ready(function() {
             dropShadowDistance: 6,
         }));
         turnText.x = 80;
-        turnText.y = 300;
+        turnText.y = 320;
         app.stage.addChild(turnText);
-        window.pixi.turnText = turnText;
+        window.pixi.set_text = function(t) {
+            turnText.text = t;
+        };
+
+        const playerText = new PIXI.Text('', new PIXI.TextStyle({
+            fontFamily: "Kaiti,Arial",
+            fontSize: 24,
+            fill: "white",
+            stroke: '#0033ff',
+            strokeThickness: 4,
+            dropShadow: true,
+            dropShadowColor: "#000000",
+            dropShadowBlur: 4,
+            dropShadowAngle: Math.PI / 6,
+            dropShadowDistance: 6,
+        }));
+        playerText.x = 80;
+        playerText.y = 280;
+        app.stage.addChild(playerText);
+        window.pixi.set_player = function(t) {
+            playerText.text = t;
+        };
 
         const graphics = new PIXI.Graphics();
 
@@ -189,6 +225,17 @@ $(document).ready(function() {
         var offset_w = 315;
         var offset_h = 10;
 
+        window.pixi.draw_pt = function(obj) {
+            const graphics = new PIXI.Graphics();
+            graphics.beginFill(obj.type == 1 ? 0x222222 : 0xffffff);
+            graphics.drawCircle(obj.pos.x * r + offset_w - r / 2, obj.pos.y * r + offset_h - r / 2, r / 2 - 2);
+            graphics.endFill();
+            app.stage.addChild(graphics);
+        };
+
+        graphics.beginFill(0xeeb766);
+        graphics.drawRect(offset_w, offset_h, edges, edges);
+        graphics.endFill();
         graphics.lineStyle(1, 0x444444, 1);
         for (var i = 15; i <= edges; i += r) {
             graphics.moveTo(offset_w + 15, offset_h + i);
@@ -197,9 +244,13 @@ $(document).ready(function() {
             graphics.lineTo(offset_w + i, offset_h + edges - 15);
         }
 
-        graphics.interactive = true;
-        graphics.hitArea = graphics.getBounds();
-        graphics.click = function(data) {
+        var background = new PIXI.Container();
+        background.addChild(graphics);
+        background.cacheAsBitmap = true;
+        app.stage.addChild(background);
+
+        background.interactive = true;
+        background.click = function(data) {
             var d = data.data;
             console.group("鼠标消息");
             console.info("PIXI::Click", d.global.x, d.global.y);
@@ -213,10 +264,16 @@ $(document).ready(function() {
             console.groupEnd();
         }
 
-        app.stage.addChild(graphics);
+        var chess_layer = new PIXI.Container();
+        app.stage.addChild(chess_layer);
 
-        const chess = new PIXI.Graphics();
-        app.stage.addChild(chess);
+        window.pixi.draw_pt = function(obj) {
+            const graphics = new PIXI.Graphics();
+            graphics.beginFill(obj.type == 1 ? 0x222222 : 0xffffff);
+            graphics.drawCircle(obj.pos.x * r + offset_w - r / 2, obj.pos.y * r + offset_h - r / 2, r / 2 - 2);
+            graphics.endFill();
+            chess_layer.addChild(graphics);
+        };
 
         requestAnimationFrame(animate);
 
@@ -227,6 +284,20 @@ $(document).ready(function() {
 
         window.pixi.resize_cb = function() {
             app.renderer.resize(window.innerWidth, window.innerHeight);
+        };
+
+        window.pixi.restart = function() {
+            setTimeout(function() {
+                layx.load('restart', '棋局准备中……');
+                setTimeout(function() {
+                    chess_layer.removeChildren();
+                    layx.destroy('restart');
+                    ws.send(JSON.stringify({
+                        code: "game_restart",
+                        data: "123"
+                    }));
+                }, 3000);
+            }, 2000);
         };
 
         layx.destroy('gaming');

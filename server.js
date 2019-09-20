@@ -192,16 +192,17 @@ console.log('start app');
 
 const broadcast = (server, info) => {
     console.log('ws::broadcast', info)
-    server.connections.forEach(function (conn) {
+    server.connections.forEach(function(conn) {
         conn.sendText(JSON.stringify({ code: "broadcast", data: info }))
     })
 }
 
 var ws = require('nodejs-websocket');
 var uuid = require('node-uuid');
-var server = ws.createServer(function (conn) {
+const r = 20;
+var server = ws.createServer(function(conn) {
     console.info("new connection")
-    conn.on('text', function (data) {
+    conn.on('text', function(data) {
         if (users[conn.key])
             console.info('ws::text', users[conn.key].id, data);
         let obj = JSON.parse(data);
@@ -242,6 +243,11 @@ var server = ws.createServer(function (conn) {
             if (users_matching.length >= 1) {
                 var enemy = users_matching[0];
                 users_matching = users_matching.slice(1);
+                if (!users[enemy]) {
+                    console.info("user matching wait", users[conn.key].id);
+                    users_matching.push(conn.key);
+                    return;
+                }
                 users[conn.key].enemy = enemy;
                 users[enemy].enemy = conn.key;
                 users[enemy].conn.sendText(JSON.stringify({ code: "matched", data: users[conn.key].uid }));
@@ -257,7 +263,6 @@ var server = ws.createServer(function (conn) {
                 }]);
                 users[conn.key].room = users[enemy].room = rooms_id;
                 var arr = new Array();
-                const r = 19;
                 for (var i = 0; i < r; i++) {
                     arr[i] = new Array();
                     for (var j = 0; j < r; j++) {
@@ -268,26 +273,31 @@ var server = ws.createServer(function (conn) {
                     maps: arr,
                     chance: 1,
                     p1: users[conn.key],
-                    p2: users[enemy]
+                    p2: users[enemy],
+                    complete: false
                 };
                 conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
                 users[enemy].conn.sendText(JSON.stringify({ code: "game_turn_off", data: "123" }));
+                conn.sendText(JSON.stringify({ code: "game_set_player", data: 1 }));
+                users[enemy].conn.sendText(JSON.stringify({ code: "game_set_player", data: 2 }));
                 rooms_id++;
             } else {
                 console.info("user matching wait", users[conn.key].id);
                 users_matching.push(conn.key);
             }
         } else if (code === 'game_go') {
-            const r = 19;
             try {
                 var data = JSON.parse(obj.data);
                 if (!data.x || !data.y) return;
-                var x = data.x, y = data.y;
+                var x = data.x,
+                    y = data.y;
                 if (!(0 < x && x <= r && 0 < y && y <= r)) return;
                 var roomid = users[conn.key].room;
                 if (!roomid) return;
                 var _room = rooms[roomid];
                 if (!_room) return;
+                if (_room.complete)
+                    return conn.sendText(JSON.stringify({ code: "error", data: "棋局已经结束" }));
                 var local = _room.chance == 1 ? _room.p1.id : _room.p2.id;
                 if (users[conn.key].id != local)
                     return conn.sendText(JSON.stringify({ code: "error", data: "还没轮到你下" }));
@@ -296,20 +306,98 @@ var server = ws.createServer(function (conn) {
                     return conn.sendText(JSON.stringify({ code: "error", data: "这里不能下" }));
                 }
                 maps[x][y] = _room.chance;
-                _room.p1.conn.sendText(JSON.stringify({ code: "game_set", data: data }));
-                _room.p2.conn.sendText(JSON.stringify({ code: "game_set", data: data }));
-                (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_off", data: "123" }));
-                _room.chance = 3 - _room.chance;
-                (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
+                _room.p1.conn.sendText(JSON.stringify({
+                    code: "game_set",
+                    data: {
+                        type: _room.chance,
+                        pos: data
+                    }
+                }));
+                _room.p2.conn.sendText(JSON.stringify({
+                    code: "game_set",
+                    data: {
+                        type: _room.chance,
+                        pos: data
+                    }
+                }));
+                var check_win = function(m, t, xx, yy, rr) {
+                    var sums = function(dx, dy) {
+                        var _x = xx,
+                            _y = yy;
+                        _x += dx;
+                        _y += dy;
+                        var c = 0;
+                        for (var i = 1; i <= 4; i++) {
+                            if (_x >= 0 && _x < rr && _y >= 0 && _y < rr) {
+                                if (m[_x][_y] == t) {
+                                    c++;
+                                    _x += dx;
+                                    _y += dy;
+                                } else { break; }
+                            } else { break; }
+                        }
+                        return c;
+                    }
+                    var dir = [
+                        [0, 1],
+                        [1, 0],
+                        [1, 1],
+                        [-1, 1]
+                    ];
+                    for (var k in dir) {
+                        var dd = dir[k];
+                        var xd = dd[0],
+                            yd = dd[1];
+                        if (sums(xd, yd) + sums(-xd, -yd) >= 4) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+                if (check_win(maps, _room.chance, x, y, r)) {
+                    _room.complete = true;
+                    (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 3 }));
+                    (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 4 }));
+                } else {
+                    (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_off", data: "123" }));
+                    _room.chance = 3 - _room.chance;
+                    (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
+                }
             } catch (e) {
                 console.error("Game::game_go error", e);
             }
+        } else if (code === 'game_restart') {
+            var roomid = users[conn.key].room;
+            if (!roomid) return;
+            var _room = rooms[roomid];
+            if (!_room) return;
+            if (_room.complete) {
+                _room.complete = false;
+                var p = _room.p1;
+                _room.p1 = _room.p2;
+                _room.p2 = p;
+                for (var i = 0; i < r; i++) {
+                    for (var j = 0; j < r; j++) {
+                        _room.maps[i][j] = 0;
+                    }
+                }
+            }
+            var local = _room.chance == 1 ? _room.p1.id : _room.p2.id;
+            if (users[conn.key].id == local) {
+                var con = _room.chance == 1 ? _room.p1.conn : _room.p2.conn;
+                con.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
+                con.sendText(JSON.stringify({ code: "game_set_player", data: 1 }));
+            } else {
+                var con = _room.chance == 1 ? _room.p2.conn : _room.p1.conn;
+                con.sendText(JSON.stringify({ code: "game_turn_off", data: "123" }));
+                con.sendText(JSON.stringify({ code: "game_set_player", data: 2 }));
+            }
         }
     });
-    conn.on('connect', function (code) {
+    conn.on('connect', function(code) {
         console.log('ws::connect', code);
     });
-    conn.on('close', function (code) {
+    conn.on('close', function(code) {
         console.log('ws::close', code);
         if (users[conn.key]) {
             if (users[conn.key].enemy && users[users[conn.key].enemy] && users[users[conn.key].enemy].enemy) {
@@ -325,7 +413,7 @@ var server = ws.createServer(function (conn) {
         }
         console.info("now users", Object.keys(users).length);
     });
-    conn.on('error', function (code) {
+    conn.on('error', function(code) {
         console.log('ws::error', code);
         try {
             conn.close('force close');
