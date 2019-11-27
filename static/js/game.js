@@ -27,7 +27,7 @@ $(document).ready(function() {
         }
     });
 
-    var ws = new WebSocket('ws://' + location.hostname + ':8081');
+    var ws = new WebSocket('ws://lan-ws.learn.io:7458');
     var ws_open = false;
     ws.onopen = function() {
         console.log('ws::open');
@@ -75,6 +75,8 @@ $(document).ready(function() {
             }, 2000);
         } else if (obj.code === 'error') {
             layx.msg(obj.data);
+        } else if (obj.code === 'rank') {
+            if (window.pixi && window.pixi.set_rank) window.pixi.set_rank(obj.data);
         } else if (obj.code === 'game_turn_on') {
             window.pixi.set_text("轮到你下棋了！");
         } else if (obj.code === 'game_turn_off') {
@@ -199,6 +201,72 @@ $(document).ready(function() {
             turnText.text = t;
         };
 
+        const rankText = new PIXI.Text('', new PIXI.TextStyle({
+            fontFamily: "Arial",
+            fontSize: 24,
+            fill: "white",
+            stroke: '#ff3300',
+            strokeThickness: 4,
+            dropShadow: true,
+            dropShadowColor: "#000000",
+            dropShadowBlur: 4,
+            dropShadowAngle: Math.PI / 6,
+            dropShadowDistance: 6,
+        }));
+        rankText.x = 920;
+        rankText.y = 60;
+        rankText.text = "== 排行榜 ==";
+        app.stage.addChild(rankText);
+
+        var old_rank = [];
+        window.pixi.set_rank = function(t) {
+            for (var oldi in old_rank) {
+                app.stage.removeChild(old_rank[oldi]);
+            }
+            var h = 90;
+            var ii = 1;
+            if (!t.length) {
+                const rplayerText = new PIXI.Text('', new PIXI.TextStyle({
+                    fontFamily: "Kaiti,Arial",
+                    fontSize: 24,
+                    fill: "white",
+                    stroke: '#0033ff',
+                    strokeThickness: 4,
+                    dropShadow: true,
+                    dropShadowColor: "#000000",
+                    dropShadowBlur: 4,
+                    dropShadowAngle: Math.PI / 6,
+                    dropShadowDistance: 6,
+                }));
+                rplayerText.x = 920;
+                rplayerText.y = h;
+                rplayerText.text = "没有纪录";
+                app.stage.addChild(rplayerText);
+                old_rank.push(rplayerText);
+            } else
+                for (var ti in t) {
+                    const rplayerText = new PIXI.Text('', new PIXI.TextStyle({
+                        fontFamily: "Kaiti,Arial",
+                        fontSize: 24,
+                        fill: "white",
+                        stroke: '#0033ff',
+                        strokeThickness: 4,
+                        dropShadow: true,
+                        dropShadowColor: "#000000",
+                        dropShadowBlur: 4,
+                        dropShadowAngle: Math.PI / 6,
+                        dropShadowDistance: 6,
+                    }));
+                    rplayerText.x = 920;
+                    rplayerText.y = h;
+                    rplayerText.text = "No." + (ii) + " " + t[ti].cls + " " + t[ti].name + "  积分：" + t[ti].win;
+                    h += 30;
+                    ii++;
+                    app.stage.addChild(rplayerText);
+                    old_rank.push(rplayerText);
+                }
+        };
+
         const playerText = new PIXI.Text('', new PIXI.TextStyle({
             fontFamily: "Kaiti,Arial",
             fontSize: 24,
@@ -275,12 +343,12 @@ $(document).ready(function() {
             chess_layer.addChild(graphics);
         };
 
-        requestAnimationFrame(animate);
+        /*requestAnimationFrame(animate);
 
         function animate() {
             requestAnimationFrame(animate);
-            app.renderer.render(app.stage);
-        }
+            //app.renderer.render(app.stage);
+        }*/
 
         window.pixi.resize_cb = function() {
             app.renderer.resize(window.innerWidth, window.innerHeight);
@@ -301,6 +369,21 @@ $(document).ready(function() {
         };
 
         layx.destroy('gaming');
+
+
+        function post_rank_update() {
+            if (window._login && window._login.s && window._login.st && window._login.st.stuname) {
+                ws.send(JSON.stringify({
+                    code: "game_rank",
+                    data: {
+                        st: window._login.st
+                    }
+                }));
+                return;
+            }
+            setTimeout(post_rank_update, 1000);
+        }
+        setTimeout(post_rank_update, 1000);
     };
 
     var reset = function() {

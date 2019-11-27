@@ -8,6 +8,7 @@ const logger = require('morgan');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const log4js = require("log4js");
+const _ = require('lodash');
 
 log4js.configure({
     appenders: {
@@ -23,6 +24,14 @@ log4js.configure({
     },
     replaceConsole: true
 });
+
+const low = require('lowdb');
+const FileSync = require('lowdb/adapters/FileSync');
+
+const adapter = new FileSync('db.json');
+const rankdb = low(adapter);
+rankdb.defaults({ records: [] })
+    .write();
 
 const app = new express();
 
@@ -187,13 +196,13 @@ router.get('/ping', (req, res) => {
 });
 app.use('/api2', router);
 
-app.listen(8080);
+app.listen(7457);
 console.log('start app');
 
-const broadcast = (server, info) => {
-    console.log('ws::broadcast', info)
+const broadcast = (server, code, info) => {
+    //console.log('ws::broadcast', code, info)
     server.connections.forEach(function(conn) {
-        conn.sendText(JSON.stringify({ code: "broadcast", data: info }))
+        conn.sendText(JSON.stringify({ code: code, data: info }))
     })
 }
 
@@ -215,7 +224,7 @@ var server = ws.createServer(function(conn) {
                 console.error('ws::error', error);
             }
         } else if (code === 'broadcast') {
-            broadcast(server, obj.data)
+            broadcast(server, "broadcast", obj.data)
         } else if (code === 'hello') {
             var uid = uuid.v1();
             db.exec('INSERT INTO users VALUES ?', [{
@@ -285,6 +294,8 @@ var server = ws.createServer(function(conn) {
                 console.info("user matching wait", users[conn.key].id);
                 users_matching.push(conn.key);
             }
+        } else if (code === 'game_rank') {
+            users[conn.key].st = obj.data.st;
         } else if (code === 'game_go') {
             try {
                 var data = JSON.parse(obj.data);
@@ -356,6 +367,21 @@ var server = ws.createServer(function(conn) {
                 }
                 if (check_win(maps, _room.chance, x, y, r)) {
                     _room.complete = true;
+                    var rr = (_room.chance == 1 ? _room.p1 : _room.p2);
+                    if (rr.st) {
+                        var id = parseInt((new Date().getFullYear() + "").slice(2) + rr.st.clsid + ((100 + rr.st.sid) + "").slice(1));
+                        if (!rankdb.get('records').find({ id: id }).value()) {
+                            rankdb.get('records')
+                                .push({ id: id, name: rr.st.stuname, cls: rr.st.clsname, win: 0 })
+                                .write()
+                        }
+                        var win = rankdb.get('records').find({ id: id }).value().win;
+                        rankdb.get('records')
+                            .find({ id: id })
+                            .assign({ win: win + 1 })
+                            .write();
+                        console.log("win", id, win + 1);
+                    }
                     (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 3 }));
                     (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 4 }));
                 } else {
@@ -415,13 +441,24 @@ var server = ws.createServer(function(conn) {
     });
     conn.on('error', function(code) {
         console.log('ws::error', code);
-        try {
+        /*try {
             conn.close('force close');
         } catch (error) {
             console.error('ws::error', error);
-        }
+        }*/
     });
 })
 
-server.listen(8081);
+function get_rank(n) {
+    var rr = rankdb.get('records');
+    var rk = _.chain(rr).filter(a => !/^临时.*/.test(a.name)).sortBy(a => -a.win).take(n).value();
+    return rk;
+}
+
+setInterval(function() {
+    console.log('broadcast rank');
+    broadcast(server, "rank", get_rank(10));
+}, 30000);
+
+server.listen(7458);
 console.log('start ws');
