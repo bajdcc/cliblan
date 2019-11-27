@@ -191,6 +191,27 @@ router.get('/room', (req, res) => {
         data: _rooms
     }));
 });
+router.get('/rank', (req, res) => {
+    var page = req.query.page || 1;
+    if (!/^\d+$/.test(page + ""))
+        return res.end(JSON.stringify({ code: 400, msg: "wrong page" }));
+    var limit = req.query.limit || 10;
+    if (!/^\d+$/.test(limit + ""))
+        return res.end(JSON.stringify({ code: 400, msg: "wrong limit" }));
+    page = parseInt(page);
+    page--;
+    if (page <= 0) page = 0;
+    limit = parseInt(limit);
+    if (limit < 1) limit = 1;
+    const rk = rankdb.get('records').value();
+    const _ranks = _.chain(rk).slice(page * limit).take(limit).value();
+    res.end(JSON.stringify({
+        code: 0,
+        msg: "",
+        count: rk.length,
+        data: _ranks
+    }));
+});
 router.get('/ping', (req, res) => {
     res.end("pong");
 });
@@ -382,6 +403,21 @@ var server = ws.createServer(function(conn) {
                             .write();
                         console.log("win", id, win + 1);
                     }
+                    var rr2 = (_room.chance != 1 ? _room.p1 : _room.p2);
+                    if (rr2.st) {
+                        var id = parseInt((new Date().getFullYear() + "").slice(2) + rr2.st.clsid + ((100 + rr2.st.sid) + "").slice(1));
+                        if (!rankdb.get('records').find({ id: id }).value()) {
+                            rankdb.get('records')
+                                .push({ id: id, name: rr2.st.stuname, cls: rr2.st.clsname, win: 0 })
+                                .write()
+                        }
+                        var win = rankdb.get('records').find({ id: id }).value().win;
+                        rankdb.get('records')
+                            .find({ id: id })
+                            .assign({ win: win - 1 })
+                            .write();
+                        console.log("lose", id, win - 1);
+                    }
                     (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 3 }));
                     (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 4 }));
                 } else {
@@ -431,7 +467,7 @@ var server = ws.createServer(function(conn) {
                 db.exec("UPDATE users SET enemy = NULL,room = NULL WHERE keyid = ?", [users[conn.key].enemy]);
                 db.exec('DELETE FROM rooms WHERE id = ?', [users[users[conn.key].enemy].room]);
                 delete users[users[conn.key].enemy].enemy;
-                delete rooms[users[users[conn.key].enemy].room];
+                if (users[users[conn.key].enemy]) delete rooms[users[users[conn.key].enemy].room];
                 delete users[users[conn.key].enemy].room;
             }
             db.exec('DELETE FROM users WHERE keyid = ?', [conn.key]);
