@@ -104,6 +104,26 @@ const RoomType = new GraphQLObjectType({
         }
     })
 });
+const RankType = new GraphQLObjectType({
+    name: 'RankType',
+    fields: () => ({
+        id: {
+            type: new GraphQLNonNull(GraphQLID)
+        },
+        cls: {
+            type: GraphQLString
+        },
+        name: {
+            type: GraphQLString
+        },
+        win: {
+            type: GraphQLInt
+        },
+        run: {
+            type: GraphQLInt
+        }
+    })
+});
 
 const queryType = new GraphQLObjectType({
     name: 'RootQueryType',
@@ -112,14 +132,23 @@ const queryType = new GraphQLObjectType({
             type: new GraphQLList(UserType),
             description: 'Get user list',
             resolve: (_, args) => {
-                return db.exec('select id,uid,enemy,room,keyid,createtime from users');
+                return db.exec('select id,uid,enemy,room,keyid,createtime,name,cls,sid from users');
             }
         },
         rooms: {
             type: new GraphQLList(RoomType),
             description: 'Get room list',
             resolve: (_, args) => {
-                return db.exec('select id,player1,player2,createtime from rooms');
+                return db.exec('select id,player1,player1_info,player2,player2_info,createtime from rooms');
+            }
+        },
+        ranks: {
+            type: new GraphQLList(RankType),
+            description: 'Get rank list',
+            resolve: (_, args) => {
+                const rk = rankdb.get('records').value();
+                const _ranks = _.chain(rk).sortBy(a => a.id).value();
+                return _ranks;
             }
         }
     })
@@ -163,7 +192,7 @@ router.get('/user', (req, res) => {
     if (page <= 0) page = 0;
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
-    const _users = db.exec('SELECT id,uid,enemy,room,keyid,createtime,cls,name,sid FROM users LIMIT ' + limit + ' OFFSET ' + page * limit);
+    const _users = db.exec('SELECT id,uid,enemy,room,keyid,createtime,cls,name,sid FROM users ORDER BY id LIMIT ' + limit + ' OFFSET ' + page * limit);
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -204,7 +233,7 @@ router.get('/rank', (req, res) => {
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
     const rk = rankdb.get('records').value();
-    const _ranks = _.chain(rk).slice(page * limit).take(limit).value();
+    const _ranks = _.chain(rk).sortBy(a => a.id).slice(page * limit).take(limit).value();
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -325,11 +354,23 @@ var server = ws.createServer(function(conn) {
             if (_room.p1.id == users[conn.key].id) {
                 var p1 = JSON.stringify(db.exec('SELECT cls,name,sid FROM users WHERE id = ?', [_room.p1.id])[0]);
                 db.exec('UPDATE rooms SET player1_info = ? WHERE id = ?', [p1, roomid]);
-                _room.p1.conn.sendText(JSON.stringify({ code: "game_broadcast", data: "对方为：" + obj.data.st.stuname }));
+                _room.p2.conn.sendText(JSON.stringify({
+                    code: "game_broadcast",
+                    data: {
+                        code: 1,
+                        enemy: "对手为：\n" + obj.data.st.stuname + " " + obj.data.st.sid
+                    }
+                }));
             } else {
                 var p2 = JSON.stringify(db.exec('SELECT cls,name,sid FROM users WHERE id = ?', [_room.p2.id])[0]);
                 db.exec('UPDATE rooms SET player2_info = ? WHERE id = ?', [p2, roomid]);
-                _room.p2.conn.sendText(JSON.stringify({ code: "game_broadcast", data: "对方为：" + obj.data.st.stuname }));
+                _room.p1.conn.sendText(JSON.stringify({
+                    code: "game_broadcast",
+                    data: {
+                        code: 1,
+                        enemy: "对手为：\n" + obj.data.st.stuname + " " + obj.data.st.sid
+                    }
+                }));
             }
         } else if (code === 'game_go') {
             try {

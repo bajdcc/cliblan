@@ -14,16 +14,34 @@ $(document).ready(function() {
         },
         methods: {
             match: function() {
-                layx.load('match', "正在寻找玩家...");
-                ws.send(JSON.stringify({
-                    code: "matching",
-                    data: "123"
-                }));
+                layx.confirm('提示', '要开始匹配吗？', null, {
+                    buttons: [{
+                            label: '确定',
+                            callback: function(id, button, event) {
+                                layx.destroy(id);
+                                layx.load('match', "正在寻找玩家...");
+                                ws.send(JSON.stringify({
+                                    code: "matching",
+                                    data: "123"
+                                }));
+                            }
+                        },
+                        {
+                            label: '取消',
+                            callback: function(id, button, event) {
+                                layx.destroy(id);
+                            }
+                        }
+                    ]
+                });
             },
             clear: function() {
                 this.tinput = "";
                 this.toutput = "";
-            }
+            },
+            view_info: function() { layx.iframe(1, "查看玩家", '/info.html') },
+            view_rank: function() { layx.iframe(1, "查看排名", '/rank.html') },
+            view_room: function() { layx.iframe(1, "查看房间", '/room.html') },
         }
     });
 
@@ -56,10 +74,7 @@ $(document).ready(function() {
             Vue.set(app.player, 'uid', obj.data);
             console.info("uid", obj.data);
             layx.destroy('init');
-            layx.msg("准备匹配中...");
-            setTimeout(function() {
-                app.match();
-            }, 2000);
+            layx.msg("请点击匹配按钮开始游戏");
         } else if (obj.code === 'matched') {
             Vue.set(app.player, 'enemy', obj.data);
             layx.destroy('match');
@@ -69,10 +84,7 @@ $(document).ready(function() {
             layx.msg("对方已断开连接");
             layx.load('reload', "正在刷新……");
             reset();
-            layx.msg("准备匹配中...");
-            setTimeout(function() {
-                app.match();
-            }, 2000);
+            layx.msg("请点击匹配按钮开始游戏");
         } else if (obj.code === 'error') {
             layx.msg(obj.data);
         } else if (obj.code === 'rank') {
@@ -92,7 +104,9 @@ $(document).ready(function() {
         } else if (obj.code === 'game_set') {
             window.pixi.draw_pt(obj.data);
         } else if (obj.code === 'game_broadcast') {
-            layx.msg(obj.data);
+            if (obj.data.code == 1) {
+                window.pixi.set_enemy(obj.data.enemy);
+            }
         } else if (obj.code === 'game_set_player') {
             var text = ["", "你是黑方", "你是白方", "你赢了！", "你输了！"];
             if (text[obj.data])
@@ -300,6 +314,25 @@ $(document).ready(function() {
             playerText.text = t;
         };
 
+        const enemyText = new PIXI.Text('', new PIXI.TextStyle({
+            fontFamily: "Kaiti,Arial",
+            fontSize: 24,
+            fill: "white",
+            stroke: '#0033ff',
+            strokeThickness: 4,
+            dropShadow: true,
+            dropShadowColor: "#000000",
+            dropShadowBlur: 4,
+            dropShadowAngle: Math.PI / 6,
+            dropShadowDistance: 6,
+        }));
+        enemyText.x = 80;
+        enemyText.y = 400;
+        app.stage.addChild(enemyText);
+        window.pixi.set_enemy = function(t) {
+            enemyText.text = t;
+        };
+
         const graphics = new PIXI.Graphics();
 
         var r = 30;
@@ -307,12 +340,25 @@ $(document).ready(function() {
         var offset_w = 315;
         var offset_h = 10;
 
+        var ptlist = [];
+
         window.pixi.draw_pt = function(obj) {
             const graphics = new PIXI.Graphics();
             graphics.beginFill(obj.type == 1 ? 0x222222 : 0xffffff);
             graphics.drawCircle(obj.pos.x * r + offset_w - r / 2, obj.pos.y * r + offset_h - r / 2, r / 2 - 2);
             graphics.endFill();
             app.stage.addChild(graphics);
+            ptlist.push(obj);
+            const numberText = new PIXI.Text('', new PIXI.TextStyle({
+                fontFamily: "Arial",
+                fontSize: 24,
+                fill: "red",
+                stroke: obj.type != 1 ? 0x222222 : 0xffffff
+            }));
+            numberText.x = 10;
+            numberText.y = 10;
+            numberText.text = ptlist.length;
+            app.stage.addChild(numberText);
         };
 
         graphics.beginFill(0xeeb766);
@@ -370,7 +416,7 @@ $(document).ready(function() {
 
         window.pixi.restart = function() {
             setTimeout(function() {
-                layx.load('restart', '棋局准备中……');
+                layx.load('restart', '棋局准备中，10秒后开始<br>现在可以退出游戏');
                 setTimeout(function() {
                     chess_layer.removeChildren();
                     layx.destroy('restart');
@@ -378,7 +424,7 @@ $(document).ready(function() {
                         code: "game_restart",
                         data: "123"
                     }));
-                }, 3000);
+                }, 10000);
             }, 2000);
         };
 

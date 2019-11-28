@@ -32,7 +32,7 @@
                     <div class="layui-form-item">
                         <label class="layui-form-label">输入文字</label>
                         <div class="layui-input-block">
-                            <input type="text" placeholder="请输入" class="layui-input" v-model="tinput">
+                            <input type="text" placeholder="请输入" class="layui-input" readonly v-model="tinput">
                         </div>
                     </div>
                     <div class="layui-form-item layui-form-text">
@@ -64,6 +64,9 @@
                     <div class="layui-form-item">
                         <div class="layui-input-block">
                             <button type="button" class="layui-btn layui-btn-normal" @click="match" :class="{ 'layui-btn-normal': player.enemy.length === 0, 'layui-btn-disabled': player.enemy.length > 0 }">开始匹配</button>
+                            <button type="button" class="layui-btn layui-btn-normal" @click="view_info">查看玩家</button>
+                            <button type="button" class="layui-btn layui-btn-normal" @click="view_rank">查看排名</button>
+                            <button type="button" class="layui-btn layui-btn-normal" @click="view_room">查看房间</button>
                         </div>
                     </div>
                 </form>
