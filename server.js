@@ -46,8 +46,8 @@ app.use(compression());
 app.use(log4js.connectLogger(log4js.getLogger("col"), { level: log4js.levels.INFO }));
 
 const db = new alasql.Database();
-db.exec('CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, uid STRING, enemy STRING NULL, room INT NULL, keyid STRING, createtime STRING)');
-db.exec('CREATE TABLE rooms (id INT PRIMARY KEY, player1 INT, player2 INT, createtime STRING)');
+db.exec('CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, uid STRING, enemy STRING NULL, room INT NULL, keyid STRING, createtime STRING, sid INT NULL, name STRING NULL, cls STRING NULL)');
+db.exec('CREATE TABLE rooms (id INT PRIMARY KEY, player1 INT, player2 INT, player1_info STRING NULL, player2_info STRING NULL, createtime STRING)');
 
 const {
     GraphQLID,
@@ -163,7 +163,7 @@ router.get('/user', (req, res) => {
     if (page <= 0) page = 0;
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
-    const _users = db.exec('SELECT id,uid,enemy,room,keyid,createtime FROM users LIMIT ' + limit + ' OFFSET ' + page * limit);
+    const _users = db.exec('SELECT id,uid,enemy,room,keyid,createtime,cls,name,sid FROM users LIMIT ' + limit + ' OFFSET ' + page * limit);
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -183,7 +183,7 @@ router.get('/room', (req, res) => {
     if (page <= 0) page = 0;
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
-    const _rooms = db.exec('SELECT id,player1,player2,createtime FROM rooms LIMIT ' + limit + ' OFFSET ' + page * limit);
+    const _rooms = db.exec('SELECT id,player1,player2,createtime,player1_info,player2_info FROM rooms LIMIT ' + limit + ' OFFSET ' + page * limit);
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -317,6 +317,20 @@ var server = ws.createServer(function(conn) {
             }
         } else if (code === 'game_rank') {
             users[conn.key].st = obj.data.st;
+            db.exec('UPDATE users SET name = ?, cls = ?, sid = ? WHERE id = ?', [obj.data.st.stuname, obj.data.st.clsname, obj.data.st.sid, users[conn.key].id]);
+            var roomid = users[conn.key].room;
+            if (!roomid) return;
+            var _room = rooms[roomid];
+            if (!_room) return;
+            if (_room.p1.id == users[conn.key].id) {
+                var p1 = JSON.stringify(db.exec('SELECT cls,name,sid FROM users WHERE id = ?', [_room.p1.id])[0]);
+                db.exec('UPDATE rooms SET player1_info = ? WHERE id = ?', [p1, roomid]);
+                _room.p1.conn.sendText(JSON.stringify({ code: "game_broadcast", data: "对方为：" + obj.data.st.stuname }));
+            } else {
+                var p2 = JSON.stringify(db.exec('SELECT cls,name,sid FROM users WHERE id = ?', [_room.p2.id])[0]);
+                db.exec('UPDATE rooms SET player2_info = ? WHERE id = ?', [p2, roomid]);
+                _room.p2.conn.sendText(JSON.stringify({ code: "game_broadcast", data: "对方为：" + obj.data.st.stuname }));
+            }
         } else if (code === 'game_go') {
             try {
                 var data = JSON.parse(obj.data);
@@ -393,7 +407,7 @@ var server = ws.createServer(function(conn) {
                         var id = parseInt((new Date().getFullYear() + "").slice(2) + rr.st.clsid + ((100 + rr.st.sid) + "").slice(1));
                         if (!rankdb.get('records').find({ id: id }).value()) {
                             rankdb.get('records')
-                                .push({ id: id, name: rr.st.stuname, cls: rr.st.clsname, win: 0 })
+                                .push({ id: id, name: rr.st.stuname, cls: rr.st.clsname, win: 0, run: 0 })
                                 .write()
                         }
                         var win = rankdb.get('records').find({ id: id }).value().win;
@@ -408,7 +422,7 @@ var server = ws.createServer(function(conn) {
                         var id = parseInt((new Date().getFullYear() + "").slice(2) + rr2.st.clsid + ((100 + rr2.st.sid) + "").slice(1));
                         if (!rankdb.get('records').find({ id: id }).value()) {
                             rankdb.get('records')
-                                .push({ id: id, name: rr2.st.stuname, cls: rr2.st.clsname, win: 0 })
+                                .push({ id: id, name: rr2.st.stuname, cls: rr2.st.clsname, win: 0, run: 0 })
                                 .write()
                         }
                         var win = rankdb.get('records').find({ id: id }).value().win;
@@ -463,6 +477,28 @@ var server = ws.createServer(function(conn) {
         console.log('ws::close', code);
         if (users[conn.key]) {
             if (users[conn.key].enemy && users[users[conn.key].enemy] && users[users[conn.key].enemy].enemy) {
+                var rr = users[conn.key];
+                if (rr.st) {
+                    do {
+                        var roomid = users[conn.key].room;
+                        if (!roomid) break;
+                        var _room = rooms[roomid];
+                        if (!_room) break;
+                        if (_room.complete) break;
+                        var id = parseInt((new Date().getFullYear() + "").slice(2) + rr.st.clsid + ((100 + rr.st.sid) + "").slice(1));
+                        if (!rankdb.get('records').find({ id: id }).value()) {
+                            rankdb.get('records')
+                                .push({ id: id, name: rr.st.stuname, cls: rr.st.clsname, win: 0, run: 0 })
+                                .write()
+                        }
+                        console.log("run", id);
+                        var run = rankdb.get('records').find({ id: id }).value().run || 0;
+                        rankdb.get('records')
+                            .find({ id: id })
+                            .assign({ run: run + 1 })
+                            .write();
+                    } while (0);
+                }
                 users[users[conn.key].enemy].conn.sendText(JSON.stringify({ code: "match_disconnect", data: users[conn.key].uid }));
                 db.exec("UPDATE users SET enemy = NULL,room = NULL WHERE keyid = ?", [users[conn.key].enemy]);
                 db.exec('DELETE FROM rooms WHERE id = ?', [users[users[conn.key].enemy].room]);
@@ -487,7 +523,7 @@ var server = ws.createServer(function(conn) {
 
 function get_rank(n) {
     var rr = rankdb.get('records');
-    var rk = _.chain(rr).filter(a => !/^临时.*/.test(a.name)).sortBy(a => -a.win).take(n).value();
+    var rk = _.chain(rr).filter(a => !/^临时.*/.test(a.name)).sortBy(a => -a.win + a.run).take(n).value();
     return rk;
 }
 

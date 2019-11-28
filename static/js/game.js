@@ -79,15 +79,29 @@ $(document).ready(function() {
             if (window.pixi && window.pixi.set_rank) window.pixi.set_rank(obj.data);
         } else if (obj.code === 'game_turn_on') {
             window.pixi.set_text("轮到你下棋了！");
+            layx.msg("30秒超时将判负！");
+            window.settime = setTimeout(function() {
+                location.reload();
+            }, 30000);
         } else if (obj.code === 'game_turn_off') {
             window.pixi.set_text("等待对方下棋……");
+            if (window.settime) {
+                clearTimeout(window.settime);
+                window.settime = null;
+            }
         } else if (obj.code === 'game_set') {
             window.pixi.draw_pt(obj.data);
+        } else if (obj.code === 'game_broadcast') {
+            layx.msg(obj.data);
         } else if (obj.code === 'game_set_player') {
             var text = ["", "你是黑方", "你是白方", "你赢了！", "你输了！"];
             if (text[obj.data])
                 window.pixi.set_player(text[obj.data]);
             if (obj.data >= 3 && obj.data <= 4) {
+                if (window.settime) {
+                    clearTimeout(window.settime);
+                    window.settime = null;
+                }
                 layx.msg('比赛已结束！');
                 window.pixi.restart();
             }
@@ -259,7 +273,7 @@ $(document).ready(function() {
                     }));
                     rplayerText.x = 920;
                     rplayerText.y = h;
-                    rplayerText.text = "No." + (ii) + " " + t[ti].cls + " " + t[ti].name + "  积分：" + t[ti].win;
+                    rplayerText.text = "No." + (ii) + " " + t[ti].cls + " " + t[ti].name + "  积分：" + (t[ti].win - t[ti].run);
                     h += 30;
                     ii++;
                     app.stage.addChild(rplayerText);
@@ -369,7 +383,6 @@ $(document).ready(function() {
         };
 
         layx.destroy('gaming');
-
 
         function post_rank_update() {
             if (window._login && window._login.s && window._login.st && window._login.st.stuname) {

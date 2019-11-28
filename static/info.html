@@ -32,8 +32,8 @@
     <script type="text/javascript" src="js/layx.min.js" charset="utf-8"></script>
     <script type="text/javascript" src="js/vue.min.js" charset="utf-8"></script>
     <script type="text/javascript">
-        $(document).ready(function () {
-            layui.use('table', function () {
+        $(document).ready(function() {
+            layui.use('table', function() {
                 var table = layui.table;
 
                 table.render({
@@ -50,6 +50,19 @@
                             field: 'uid',
                             width: 300,
                             title: '用户名'
+                        }, {
+                            field: 'cls',
+                            width: 120,
+                            title: '班级'
+                        }, {
+                            field: 'name',
+                            width: 120,
+                            title: '姓名'
+                        }, {
+                            field: 'sid',
+                            width: 80,
+                            title: '学号',
+                            sort: true
                         }, {
                             field: 'enemy',
                             width: 80,

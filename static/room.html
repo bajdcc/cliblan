@@ -32,8 +32,8 @@
     <script type="text/javascript" src="js/layx.min.js" charset="utf-8"></script>
     <script type="text/javascript" src="js/vue.min.js" charset="utf-8"></script>
     <script type="text/javascript">
-        $(document).ready(function () {
-            layui.use('table', function () {
+        $(document).ready(function() {
+            layui.use('table', function() {
                 var table = layui.table;
 
                 table.render({
@@ -51,9 +51,17 @@
                             width: 80,
                             title: '玩家一'
                         }, {
+                            field: 'player1_info',
+                            width: 300,
+                            title: '玩家一信息'
+                        }, {
                             field: 'player2',
                             width: 80,
                             title: '玩家二'
+                        }, {
+                            field: 'player2_info',
+                            width: 300,
+                            title: '玩家二信息'
                         }, {
                             width: 200,
                             field: 'createtime',
