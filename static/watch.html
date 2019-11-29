@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/layui/css/layui.css" media="all">
+    <link rel="stylesheet" href="/css/layx.min.css" media="all">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <title>cliblan 观看比赛</title>
+</head>
+
+<body>
+
+    <div id="game"></div>
+
+    <script type="text/javascript" src="js/jquery.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="layui/layui.js" charset="utf-8"></script>
+    <script type="text/javascript" src="js/layx.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="js/vue.min.js" charset="utf-8"></script>
+    <script type="text/javascript">
+        function detectWebGLContext() {
+            // Create canvas element. The canvas is not added to the
+            // document itself, so it is never displayed in the
+            // browser window.
+            var canvas = document.createElement("canvas");
+            // Get WebGLRenderingContext from canvas element.
+            var gl = canvas.getContext("webgl") ||
+                canvas.getContext("experimental-webgl");
+            // Report the result.
+            if (gl && gl instanceof WebGLRenderingContext) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        (function() {
+            if (detectWebGLContext()) {
+                document.write('<script type="text/javascript" src="js/pixi-legacy.min.js" charset="utf-8"><' + '/script>');
+            } else {
+                document.write('<script type="text/javascript" src="js/pixi-legacy.min.js" charset="utf-8"><' + '/script>');
+            }
+        })();
+        detectWebGLContext();
+    </script>
+    <script type="text/javascript" src="js/watch.js" charset="utf-8"></script>
+</body>
+
+</html>

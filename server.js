@@ -96,8 +96,14 @@ const RoomType = new GraphQLObjectType({
         player1: {
             type: GraphQLInt
         },
+        player1_info: {
+            type: GraphQLString
+        },
         player2: {
             type: GraphQLInt
+        },
+        player2_info: {
+            type: GraphQLString
         },
         createtime: {
             type: GraphQLString
@@ -121,6 +127,17 @@ const RankType = new GraphQLObjectType({
         },
         run: {
             type: GraphQLInt
+        }
+    })
+});
+const WatchType = new GraphQLObjectType({
+    name: 'WatchType',
+    fields: () => ({
+        room: {
+            type: RoomType
+        },
+        pts: {
+            type: GraphQLString
         }
     })
 });
@@ -149,6 +166,29 @@ const queryType = new GraphQLObjectType({
                 const rk = rankdb.get('records').value();
                 const _ranks = _.chain(rk).sortBy(a => a.id).value();
                 return _ranks;
+            }
+        },
+        watch: {
+            type: WatchType,
+            description: 'Get watch',
+            args: {
+                id: {
+                    type: GraphQLInt,
+                    description: 'Room id'
+                },
+                time: {
+                    type: GraphQLString,
+                    description: 'Time'
+                }
+            },
+            resolve: (_, args) => {
+                var id = args.id;
+                if (!rooms[id]) return null;
+                var ret = {
+                    room: db.exec('select id,player1,player1_info,player2,player2_info,createtime from rooms WHERE id = ?', [id])[0],
+                    pts: JSON.stringify(rooms[id].pts)
+                };
+                return ret;
             }
         }
     })
@@ -333,7 +373,7 @@ var server = ws.createServer(function(conn) {
                     chance: 1,
                     p1: users[conn.key],
                     p2: users[enemy],
-                    pts: 0,
+                    pts: [],
                     complete: false
                 };
                 conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
@@ -393,7 +433,7 @@ var server = ws.createServer(function(conn) {
                 if (maps[x][y] != 0) {
                     return conn.sendText(JSON.stringify({ code: "error", data: "这里不能下" }));
                 }
-                _room.pts++;
+                _room.pts.push(data);
                 maps[x][y] = _room.chance;
                 _room.p1.conn.sendText(JSON.stringify({
                     code: "game_set",
@@ -478,7 +518,7 @@ var server = ws.createServer(function(conn) {
                     (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 3 }));
                     (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 4 }));
                 } else {
-                    if (_room.pts == r * r) {
+                    if (_room.pts.length == r * r) {
                         console.log("full", _room.p1.id, _room.p2.id);
                         (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 5 }));
                         (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 5 }));
@@ -501,7 +541,7 @@ var server = ws.createServer(function(conn) {
                 var p = _room.p1;
                 _room.p1 = _room.p2;
                 _room.p2 = p;
-                _room.pts = 0;
+                _room.pts = [];
                 for (var i = 0; i < r; i++) {
                     for (var j = 0; j < r; j++) {
                         _room.maps[i][j] = 0;

@@ -19,7 +19,7 @@
         <div class="layui-row">
             <div class="layui-col-xs12">
                 <fieldset class="layui-elem-field layui-field-title" style="margin-top: 20px;">
-                    <legend>房间列表</legend>
+                    <legend>房间列表&emsp;<b onclick="location.reload()">点我刷新</b></legend>
                 </fieldset>
 
                 <table class="layui-hide" id="list"></table>
@@ -46,6 +46,11 @@
                             width: 80,
                             title: '编号',
                             sort: true
+                        }, {
+                            width: 120,
+                            field: 'button',
+                            title: '观看比赛',
+                            templet: '<div><a href="watch.html?id={{d.id}}" target="_blank" class="layui-table-link">点此观看</a></div>'
                         }, {
                             field: 'player1',
                             width: 80,

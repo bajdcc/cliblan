@@ -95,7 +95,20 @@
             }
         }
         (function() {
-            if (detectWebGLContext()) {
+            function gup(name) {
+                name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+                var regexS = "[\\?&]" + name + "=([^&#]*)";
+                var regex = new RegExp(regexS);
+                var results = regex.exec(location.href);
+                if (results === null) {
+                    return null;
+                } else {
+                    return results[1];
+                }
+            }
+            if (gup('webgl')) {
+                document.write('<script type="text/javascript" src="js/pixi.min.js" charset="utf-8"><' + '/script>');
+            } else if (detectWebGLContext()) {
                 document.write('<script type="text/javascript" src="js/pixi-legacy.min.js" charset="utf-8"><' + '/script>');
             } else {
                 document.write('<script type="text/javascript" src="js/pixi-legacy.min.js" charset="utf-8"><' + '/script>');
