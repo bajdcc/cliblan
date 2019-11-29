@@ -214,6 +214,11 @@ var api = graphqlHTTP({
 });
 app.use('/api', api);
 
+app.all('*', function(req, res, next) {
+    res.header("Content-Type", "application/json;charset=utf-8");
+    next();
+});
+
 var users = {}; // key => id
 var users_matching = [];
 var rooms_id = 1;
@@ -274,6 +279,7 @@ router.get('/rank', (req, res) => {
     if (limit < 1) limit = 1;
     const rk = rankdb.get('records').value();
     const _ranks = _.chain(rk).sortBy(a => a.id).slice(page * limit).take(limit).value();
+    res.setHeader('Content-Type', 'application/json;encoding=utf-8');
     res.end(JSON.stringify({
         code: 0,
         msg: "",
