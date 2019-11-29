@@ -80,6 +80,13 @@ $(document).ready(function() {
             layx.destroy('match');
             begin_match();
         } else if (obj.code === 'match_disconnect') {
+            if (window.pixi.restarting) {
+                clearTimeout(window.pixi.restarting);
+                window.pixi.restarting = null;
+                if (window.pixi.ptlist) window.pixi.ptlist = [];
+                if (window.pixi.focus_circle) window.pixi.focus_circle = null;
+                layx.destroy('restart');
+            }
             Vue.set(app.player, 'enemy', "");
             layx.msg("对方已断开连接");
             layx.load('reload', "正在刷新……");
@@ -206,7 +213,10 @@ about-layx label {
    </div>
 </div>
             */
-        }));
+        }), {
+            shadable: true,
+            alwaysOnTop: true,
+        });
         layx.setSize('need-to-know', { width: 500, height: 250 }, true);
         layx.setPosition('need-to-know', 'ct');
     }
@@ -472,7 +482,7 @@ about-layx label {
         window.pixi.restart = function() {
             setTimeout(function() {
                 layx.load('restart', '棋局准备中，10秒后开始<br>现在可以退出游戏');
-                setTimeout(function() {
+                window.pixi.restarting = setTimeout(function() {
                     chess_layer.removeChildren();
                     window.pixi.ptlist = [];
                     window.pixi.focus_circle = null;

@@ -2,6 +2,7 @@
     "restartable": "rs",
     "ignore": [
         "db.json",
+        "*.log",
         "node_modules/**"
     ],
     "verbose": true,

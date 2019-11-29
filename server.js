@@ -14,16 +14,26 @@ log4js.configure({
     appenders: {
         col: {
             type: 'console'
+        },
+        log: {
+            type: 'file',
+            filename: 'debug.log'
         }
     },
     categories: {
         default: {
             appenders: ['col'],
-            level: 'error'
+            level: 'info'
+        },
+        log: {
+            appenders: ['log'],
+            level: 'info'
         }
     },
     replaceConsole: true
 });
+var syslog = log4js.getLogger('log');
+syslog.info("start");
 
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
@@ -138,6 +148,12 @@ const WatchType = new GraphQLObjectType({
         },
         pts: {
             type: GraphQLString
+        },
+        chance: {
+            type: GraphQLInt
+        },
+        first: {
+            type: GraphQLInt
         }
     })
 });
@@ -184,9 +200,14 @@ const queryType = new GraphQLObjectType({
             resolve: (_, args) => {
                 var id = args.id;
                 if (!rooms[id]) return null;
+                var rm = db.exec('select id,player1,player1_info,player2,player2_info,createtime from rooms WHERE id = ?', [id])[0];
+                rm.player1_info = rm.player1_info || JSON.stringify({ name: "Player " + rm.player1 });
+                rm.player2_info = rm.player2_info || JSON.stringify({ name: "Player " + rm.player2 });
                 var ret = {
-                    room: db.exec('select id,player1,player1_info,player2,player2_info,createtime from rooms WHERE id = ?', [id])[0],
-                    pts: JSON.stringify(rooms[id].pts)
+                    room: rm,
+                    pts: JSON.stringify(rooms[id].pts),
+                    chance: rooms[id].chance,
+                    first: rooms[id].first
                 };
                 return ret;
             }
@@ -214,11 +235,6 @@ var api = graphqlHTTP({
 });
 app.use('/api', api);
 
-app.all('*', function(req, res, next) {
-    res.header("Content-Type", "application/json;charset=utf-8");
-    next();
-});
-
 var users = {}; // key => id
 var users_matching = [];
 var rooms_id = 1;
@@ -238,6 +254,7 @@ router.get('/user', (req, res) => {
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
     const _users = db.exec('SELECT id,uid,enemy,room,keyid,createtime,cls,name,sid FROM users ORDER BY id LIMIT ' + limit + ' OFFSET ' + page * limit);
+    res.header("Content-Type", "application/json;charset=utf-8");
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -258,6 +275,7 @@ router.get('/room', (req, res) => {
     limit = parseInt(limit);
     if (limit < 1) limit = 1;
     const _rooms = db.exec('SELECT id,player1,player2,createtime,player1_info,player2_info FROM rooms LIMIT ' + limit + ' OFFSET ' + page * limit);
+    res.header("Content-Type", "application/json;charset=utf-8");
     res.end(JSON.stringify({
         code: 0,
         msg: "",
@@ -376,6 +394,7 @@ var server = ws.createServer(function(conn) {
                 }
                 rooms[rooms_id] = {
                     maps: arr,
+                    first: 1,
                     chance: 1,
                     p1: users[conn.key],
                     p2: users[enemy],
@@ -504,6 +523,7 @@ var server = ws.createServer(function(conn) {
                             .find({ id: id })
                             .assign({ win: win + 1 })
                             .write();
+                        syslog.info("win", id, win + 1);
                         console.log("win", id, win + 1);
                     }
                     var rr2 = (_room.chance != 1 ? _room.p1 : _room.p2);
@@ -519,6 +539,7 @@ var server = ws.createServer(function(conn) {
                             .find({ id: id })
                             .assign({ win: win - 1 })
                             .write();
+                        syslog.info("lose", id, win - 1);
                         console.log("lose", id, win - 1);
                     }
                     (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 3 }));
@@ -545,6 +566,7 @@ var server = ws.createServer(function(conn) {
             if (_room.complete) {
                 _room.complete = false;
                 var p = _room.p1;
+                _room.first = 3 - _room.first;
                 _room.p1 = _room.p2;
                 _room.p2 = p;
                 _room.pts = [];
@@ -588,6 +610,7 @@ var server = ws.createServer(function(conn) {
                                 .push({ id: id, name: rr.st.stuname, cls: rr.st.clsname, win: 0, run: 0 })
                                 .write()
                         }
+                        syslog.info("run", id);
                         console.log("run", id);
                         var run = rankdb.get('records').find({ id: id }).value().run || 0;
                         rankdb.get('records')

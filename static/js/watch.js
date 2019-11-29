@@ -198,14 +198,16 @@ $(document).ready(function() {
                 return failed();
             }
             $.getJSON('/api', {
-                    query: "{watch(id:" + id + ",time:\"" + (+new Date()) + "\"){room{id,player1,player1_info,player2,player2_info}pts}}"
+                    query: "{watch(id:" + id + ",time:\"" + (+new Date()) + "\"){room{id,player1,player1_info,player2,player2_info}pts,chance,first}}"
                 },
                 function(data) {
                     if (!data.data.watch) {
                         return failed();
                     }
                     var pts = JSON.parse(data.data.watch.pts);
-                    var type = window.pixi.ptlist.length % 2 == 0 ? 1 : 0;
+                    var type = pts.length % 2 == 0 ? 1 : 2;
+                    if (data.data.watch.first != 1)
+                        type = 3 - type;
                     if (window.pixi.get_player() == '') {
                         var p1 = '匿名';
                         if (data.data.watch.room.player1_info)
@@ -213,6 +215,11 @@ $(document).ready(function() {
                         var p2 = '匿名';
                         if (data.data.watch.room.player2_info)
                             p2 = JSON.parse(data.data.watch.room.player2_info).name;
+                        if (type != 1) {
+                            var p = p1;
+                            p1 = p2;
+                            p2 = p;
+                        }
                         var ss = '黑方：' + p1;
                         ss += '\n';
                         ss += '白方：' + p2;
@@ -225,14 +232,15 @@ $(document).ready(function() {
                         window.pixi.set_text('');
                         window.pixi.set_player('');
                     } else {
+                        var type = window.pixi.ptlist.length % 2 == 0 ? 1 : 2;
+                        window.pixi.set_text('当前执子：' + (type == 1 ? '黑方' : '白方'));
                         for (var i = window.pixi.ptlist.length; i < pts.length; i++) {
                             window.pixi.draw_pt({
                                 type: type,
                                 pos: pts[i]
                             }, window.pixi);
-                            type = 1 - type;
+                            type = 3 - type;
                         }
-                        window.pixi.set_text('当前执子：' + (type != 0 ? '黑方' : '白方'));
                     }
                     setTimeout(post_rank_update, 1000);
                 }
