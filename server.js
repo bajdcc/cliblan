@@ -333,6 +333,7 @@ var server = ws.createServer(function(conn) {
                     chance: 1,
                     p1: users[conn.key],
                     p2: users[enemy],
+                    pts: 0,
                     complete: false
                 };
                 conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
@@ -392,6 +393,7 @@ var server = ws.createServer(function(conn) {
                 if (maps[x][y] != 0) {
                     return conn.sendText(JSON.stringify({ code: "error", data: "这里不能下" }));
                 }
+                _room.pts++;
                 maps[x][y] = _room.chance;
                 _room.p1.conn.sendText(JSON.stringify({
                     code: "game_set",
@@ -476,9 +478,15 @@ var server = ws.createServer(function(conn) {
                     (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 3 }));
                     (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 4 }));
                 } else {
-                    (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_off", data: "123" }));
-                    _room.chance = 3 - _room.chance;
-                    (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
+                    if (_room.pts == r * r) {
+                        console.log("full", _room.p1.id, _room.p2.id);
+                        (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_set_player", data: 5 }));
+                        (_room.chance == 1 ? _room.p2 : _room.p1).conn.sendText(JSON.stringify({ code: "game_set_player", data: 5 }));
+                    } else {
+                        (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_off", data: "123" }));
+                        _room.chance = 3 - _room.chance;
+                        (_room.chance == 1 ? _room.p1 : _room.p2).conn.sendText(JSON.stringify({ code: "game_turn_on", data: "123" }));
+                    }
                 }
             } catch (e) {
                 console.error("Game::game_go error", e);
@@ -493,6 +501,7 @@ var server = ws.createServer(function(conn) {
                 var p = _room.p1;
                 _room.p1 = _room.p2;
                 _room.p2 = p;
+                _room.pts = 0;
                 for (var i = 0; i < r; i++) {
                     for (var j = 0; j < r; j++) {
                         _room.maps[i][j] = 0;
@@ -526,6 +535,7 @@ var server = ws.createServer(function(conn) {
                         var _room = rooms[roomid];
                         if (!_room) break;
                         if (_room.complete) break;
+                        if (_room.pts == 0) break;
                         var id = parseInt((new Date().getFullYear() + "").slice(2) + rr.st.clsid + ((100 + rr.st.sid) + "").slice(1));
                         if (!rankdb.get('records').find({ id: id }).value()) {
                             rankdb.get('records')

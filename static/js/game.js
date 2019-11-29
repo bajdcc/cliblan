@@ -91,10 +91,12 @@ $(document).ready(function() {
             if (window.pixi && window.pixi.set_rank) window.pixi.set_rank(obj.data);
         } else if (obj.code === 'game_turn_on') {
             window.pixi.set_text("轮到你下棋了！");
-            layx.msg("30秒超时将判负！");
-            window.settime = setTimeout(function() {
-                location.reload();
-            }, 30000);
+            if (window.pixi.stu) {
+                layx.msg("30秒超时将判负！");
+                window.settime = setTimeout(function() {
+                    location.reload();
+                }, 30000);
+            }
         } else if (obj.code === 'game_turn_off') {
             window.pixi.set_text("等待对方下棋……");
             if (window.settime) {
@@ -102,16 +104,16 @@ $(document).ready(function() {
                 window.settime = null;
             }
         } else if (obj.code === 'game_set') {
-            window.pixi.draw_pt(obj.data);
+            window.pixi.draw_pt(obj.data, window.pixi);
         } else if (obj.code === 'game_broadcast') {
             if (obj.data.code == 1) {
                 window.pixi.set_enemy(obj.data.enemy);
             }
         } else if (obj.code === 'game_set_player') {
-            var text = ["", "你是黑方", "你是白方", "你赢了！", "你输了！"];
+            var text = ["", "你是黑方", "你是白方", "你赢了！", "你输了！", "平手！"];
             if (text[obj.data])
                 window.pixi.set_player(text[obj.data]);
-            if (obj.data >= 3 && obj.data <= 4) {
+            if (obj.data >= 3 && obj.data <= 5) {
                 if (window.settime) {
                     clearTimeout(window.settime);
                     window.settime = null;
@@ -167,6 +169,51 @@ $(document).ready(function() {
         if (window.pixi && window.pixi.resize_cb)
             window.pixi.resize_cb();
     });
+
+    function show_info() {
+        layx.html('need-to-know', '游戏须知', layx.multiLine(function() {
+            /*
+<style type="text/css">
+#about-layx{
+       padding:10px;
+       line-height:1.5;
+
+about-layx h2{
+   border-bottom:1px solid #ccc;
+
+about-layx label {
+   margin: 0 2px;
+   padding: 0 5px;
+   white-space: nowrap;
+   border: 0;
+   background-color: #f8f8f8;
+   border-radius: 3px;
+   display:inline-block;
+
+</style>
+<div id="about-layx">
+   <h2>游戏须知</h2>
+   <br>
+   <ul>
+       <li><label>（一）</label>游戏分胜、负、平三种结果，胜得一分，负和平不得分</li>
+       <li><label>（二）</label>回合超过30秒即判负，并重新匹配，记入逃跑次数</li>
+       <li><label>（三）</label>积分 = 赢的次数 - 逃跑次数</li>
+       <li><label>（四）</label>开局后未下子前以及棋局结束后未开始的10秒内离开将不视为逃跑</li>
+   </ul>
+   <hr>
+   <div style="float:right">
+       <button type="button" class="layui-btn" onclick="window.close_info()">关闭</button>
+   </div>
+</div>
+            */
+        }));
+        layx.setSize('need-to-know', { width: 500, height: 250 }, true);
+        layx.setPosition('need-to-know', 'ct');
+    }
+
+    window.close_info = function() {
+        layx.destroy('need-to-know');
+    };
 
     var begin_match = function() {
 
@@ -340,27 +387,6 @@ $(document).ready(function() {
         var offset_w = 315;
         var offset_h = 10;
 
-        var ptlist = [];
-
-        window.pixi.draw_pt = function(obj) {
-            const graphics = new PIXI.Graphics();
-            graphics.beginFill(obj.type == 1 ? 0x222222 : 0xffffff);
-            graphics.drawCircle(obj.pos.x * r + offset_w - r / 2, obj.pos.y * r + offset_h - r / 2, r / 2 - 2);
-            graphics.endFill();
-            app.stage.addChild(graphics);
-            ptlist.push(obj);
-            const numberText = new PIXI.Text('', new PIXI.TextStyle({
-                fontFamily: "Arial",
-                fontSize: 24,
-                fill: "red",
-                stroke: obj.type != 1 ? 0x222222 : 0xffffff
-            }));
-            numberText.x = 10;
-            numberText.y = 10;
-            numberText.text = ptlist.length;
-            app.stage.addChild(numberText);
-        };
-
         graphics.beginFill(0xeeb766);
         graphics.drawRect(offset_w, offset_h, edges, edges);
         graphics.endFill();
@@ -395,12 +421,41 @@ $(document).ready(function() {
         var chess_layer = new PIXI.Container();
         app.stage.addChild(chess_layer);
 
-        window.pixi.draw_pt = function(obj) {
+        window.pixi.ptlist = [];
+        window.pixi.focus_circle = null;
+        window.pixi.draw_pt = function(obj, _pixi) {
             const graphics = new PIXI.Graphics();
             graphics.beginFill(obj.type == 1 ? 0x222222 : 0xffffff);
             graphics.drawCircle(obj.pos.x * r + offset_w - r / 2, obj.pos.y * r + offset_h - r / 2, r / 2 - 2);
             graphics.endFill();
             chess_layer.addChild(graphics);
+            _pixi.ptlist.push(obj);
+            var mapsf = [
+                [],
+                [10, 6, 16],
+                [6, 6, 16],
+                [5, 7, 12],
+            ];
+            var txt = "" + _pixi.ptlist.length;
+            if (txt.length < mapsf.length) {
+                const numberText = new PIXI.Text(txt, new PIXI.TextStyle({
+                    fontFamily: "Arial",
+                    fontSize: mapsf[txt.length][2],
+                    fill: obj.type != 1 ? 0x222222 : 0xffffff,
+                    stroke: obj.type != 1 ? 0x222222 : 0xffffff
+                }));
+                numberText.x = obj.pos.x * r + offset_w - r + mapsf[txt.length][0];
+                numberText.y = obj.pos.y * r + offset_h - r + mapsf[txt.length][1];
+                chess_layer.addChild(numberText);
+                if (_pixi.focus_circle) {
+                    chess_layer.removeChild(_pixi.focus_circle);
+                }
+                const graphics = new PIXI.Graphics();
+                graphics.lineStyle(2, 0xff0000, 1);
+                graphics.drawCircle(obj.pos.x * r + offset_w - r / 2, obj.pos.y * r + offset_h - r / 2, r / 2 - 2);
+                chess_layer.addChild(graphics);
+                _pixi.focus_circle = graphics;
+            }
         };
 
         /*requestAnimationFrame(animate);
@@ -419,6 +474,8 @@ $(document).ready(function() {
                 layx.load('restart', '棋局准备中，10秒后开始<br>现在可以退出游戏');
                 setTimeout(function() {
                     chess_layer.removeChildren();
+                    window.pixi.ptlist = [];
+                    window.pixi.focus_circle = null;
                     layx.destroy('restart');
                     ws.send(JSON.stringify({
                         code: "game_restart",
@@ -430,6 +487,8 @@ $(document).ready(function() {
 
         layx.destroy('gaming');
 
+        window.pixi.stu = false;
+
         function post_rank_update() {
             if (window._login && window._login.s && window._login.st && window._login.st.stuname) {
                 ws.send(JSON.stringify({
@@ -438,6 +497,7 @@ $(document).ready(function() {
                         st: window._login.st
                     }
                 }));
+                window.pixi.stu = true;
                 return;
             }
             setTimeout(post_rank_update, 1000);
@@ -451,4 +511,5 @@ $(document).ready(function() {
         delete window.pixi;
         layx.destroy('reload');
     };
+    setTimeout(show_info, 1000);
 });
